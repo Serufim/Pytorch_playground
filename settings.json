@@ -1,0 +1,19 @@
+{
+  "num_epochs": 10,
+  "learning_rate": 0.1,
+  "network_layers": [
+    7,
+    8,
+    6,
+    4
+  ],
+  "activation_functions": [
+    "ReLu",
+    "ReLu",
+    "ReLu",
+    "Tanh"
+  ],
+  "random_state": 1377,
+  "num_samples": 5000,
+  "generate_type": "moons"
+}
