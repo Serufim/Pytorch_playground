@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 
 
 def get_dataset(random_state, n_samples, generate_type='moons'):
-    if type == 'moons':
+    if generate_type == 'moons':
         X, y = make_moons(noise=0.09, random_state=random_state, n_samples=n_samples)
-    if type == 'circles':
+    if generate_type == 'circles':
         X, y = make_circles(noise=0.09, random_state=random_state, n_samples=n_samples, factor=0.5)
-    if type == 'blobs':
+    if generate_type == 'blobs':
         X, y = make_blobs(random_state=random_state, n_samples=n_samples, centers=2)
     return X, y
 

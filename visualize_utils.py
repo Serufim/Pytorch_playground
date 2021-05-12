@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-from sklearn.neighbors import KNeighborsClassifier
 
 
 def make_meshgrid(X_train, X_test, y_train, y_test, h=.02):

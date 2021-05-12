@@ -1,5 +1,5 @@
 {
-  "num_epochs": 10,
+  "num_epochs": 3,
   "learning_rate": 0.1,
   "network_layers": [
     7,

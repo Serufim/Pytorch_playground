@@ -2,15 +2,21 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
+import matplotlib as mpl
+import os
+import subprocess
+import datetime
 import argparse
 from visualize_utils import make_meshgrid, predict_proba_om_mesh, plot_predictions
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import json
 from generate_data import get_dataset
 from network import Network
 from sklearn.model_selection import train_test_split
 from csv_dataset import CSVDataset
 from numpy_dataset import NumpyDataset
-
+mpl.rcParams['animation.ffmpeg_path'] = r'ffmpeg'
 
 class Trainer:
     def __init__(self, num_epochs, learnig_rate, model, criterion, optimizer):
@@ -21,6 +27,9 @@ class Trainer:
         self.optimizer = optimizer
 
     def train(self, train_dataloader):
+        frames = []
+        fig = plt.figure()
+        j=0
         for epoch in range(self.num_epochs):
             # forward
             for i, (features, labels) in enumerate(train_dataloader):
@@ -31,8 +40,7 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
 
-                if (epoch > 0):
-                    print("save image", epoch, " ", i)
+                if (epoch >= 0):
 
                     train_dataset = train_dataloader.dataset
 
@@ -42,12 +50,22 @@ class Trainer:
                     xx, yy = make_meshgrid(X_train, X_test, y_train, y_test)
                     Z = predict_proba_om_mesh_tensor(self, xx, yy)
 
-                    plot_title = "nn_predictions/nn_predictions_{}_{}.png".format(str(epoch).rjust(4, '0'),
-                                                                                  str(i).rjust(4, '0'))
-
+                    plot_title = "frames/frame_{}.png".format(str(j))
                     plot_predictions(xx, yy, Z, X_train=X_train, X_test=X_test,
-                                     y_train=y_train, y_test=y_test,
-                                     plot_name=plot_title)
+                                           y_train=y_train, y_test=y_test,
+                                           plot_name=plot_title)
+                    frames.append(plot_title)
+                j+=1
+        if os.path.exists('ffmpeg'):
+            print("Собираем видеоролик")
+            subprocess.call([
+                './ffmpeg', '-framerate', '8', '-pattern_type', 'glob', '-i', 'frames/*.png', '-pix_fmt', 'yuv420p',
+                f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.mp4'
+            ])
+            for frame in frames:
+                os.remove(frame)
+        else:
+            print("Отсутствует ffmpeg разместите его в корневой директории, для того чтобы делать видеоролики")
 
     def get_acc(self, test_dataloader):
         with torch.no_grad():
@@ -104,8 +122,8 @@ def get_data_from_datasets(train_dataset, test_dataset):
     X_train = train_dataset.X_train.astype(np.float32)
     X_test = test_dataset.X_train.astype(np.float32)
 
-    y_train = train_dataset.y_train.astype(np.int)
-    y_test = test_dataset.y_train.astype(np.int)
+    y_train = train_dataset.y_train.astype(int)
+    y_test = test_dataset.y_train.astype(int)
 
     return X_train, X_test, y_train, y_test
 
@@ -121,11 +139,13 @@ def train_network(file_path, params):
     with open(params, 'r') as params_input:
         train_parameters = json.load(params_input)
     if file_path is not None:
+        print("Генерируем датасет")
         train_dataset = CSVDataset(file_path)
         test_dataset = CSVDataset(file_path)
     else:
         # Генерируем себе датасет
-        X, y = get_dataset(train_parameters['random_state'], train_parameters['num_samples'])
+        X, y = get_dataset(train_parameters['random_state'], train_parameters['num_samples'],
+                           train_parameters['generate_type'])
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
         train_dataset = NumpyDataset(X_train, y_train)
         test_dataset = NumpyDataset(X_test, y_test)
@@ -142,12 +162,12 @@ def train_network(file_path, params):
     optimizer = torch.optim.SGD(model.parameters(), lr=learnig_rate)
     trainer = Trainer(num_epochs, learnig_rate, model, criterion, optimizer)
     trainer.train(train_dataloader)
+    trainer.get_acc(test_dataloader)
 
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description='Train neural network with your data and visualize it')
-    # parser.add_argument('file', default=None, metavar='f', required=False, type=str, help='filepath to csv dataset')
-    # parser.add_argument('params', default='settings.json', required=False, metavar='p', type=str, help='filepath to global parameters')
-    #
-    # args = parser.parse_args()
-    train_network(None, 'settings.json')
+    parser = argparse.ArgumentParser(description='Train neural network with your data and visualize it')
+    parser.add_argument('--file', default=None, type=str, help='filepath to csv dataset')
+
+    args = parser.parse_args()
+    train_network(args.file, 'settings.json')
